@@ -7,11 +7,6 @@ import (
 	"vitess.io/vitess/go/vt/topo/topoproto"
 )
 
-const (
-	tabletsAliasIndex    = "id"
-	tabletsHostnameIndex = "hostname"
-)
-
 // TabletAliasIndexer is an indexer for *topodatapb.Tablet using the
 // *topodatapb.TabletAlias ("Alias" field) as the index key.
 type TabletAliasIndexer struct{}

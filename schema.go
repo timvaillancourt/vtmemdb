@@ -4,6 +4,9 @@ import "github.com/hashicorp/go-memdb"
 
 const (
 	tabletsTable = "tablets"
+
+	tabletsAliasIndex        = "id"
+	tabletsHostnamePortIndex = "hostname_port"
 )
 
 var dbSchema = &memdb.DBSchema{
@@ -16,10 +19,15 @@ var dbSchema = &memdb.DBSchema{
 					Unique:  true,
 					Indexer: &TabletAliasIndexer{},
 				},
-				tabletsHostnameIndex: {
-					Name:    tabletsHostnameIndex,
-					Unique:  false,
-					Indexer: &memdb.StringFieldIndex{Field: "Hostname"},
+				tabletsHostnamePortIndex: {
+					Name:   tabletsHostnamePortIndex,
+					Unique: true,
+					Indexer: &memdb.CompoundIndex{
+						Indexes: []memdb.Indexer{
+							&memdb.StringFieldIndex{Field: "Hostname"},
+							&memdb.IntFieldIndex{Field: "MysqlPort"},
+						},
+					},
 				},
 			},
 		},
