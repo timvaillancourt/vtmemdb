@@ -7,8 +7,8 @@ import (
 	"vitess.io/vitess/go/vt/topo/topoproto"
 )
 
-// TabletAliasIndexer is an indexer for *topodatapb.Tablet using the
-// *topodatapb.TabletAlias ("Alias" field) as the index key.
+// TabletAliasIndexer is an indexer for *tablet using the *topodatapb.TabletAlias
+// ("Alias" field of "Tablet") as the index key.
 type TabletAliasIndexer struct{}
 
 // FromArgs satisfies the memdb.Indexer interface.
@@ -27,11 +27,11 @@ func (tai *TabletAliasIndexer) FromArgs(args ...interface{}) ([]byte, error) {
 
 // FromObject satisfies the memdb.SingleIndexer interface.
 func (tai *TabletAliasIndexer) FromObject(obj interface{}) (bool, []byte, error) {
-	tablet, ok := obj.(*topodatapb.Tablet)
+	tablet, ok := obj.(*tablet)
 	if !ok {
 		return false, nil, fmt.Errorf("object must be a *topodatapb.Tablet: %+v", obj)
 	}
-	val := topoproto.TabletAliasString(tablet.Alias)
+	val := topoproto.TabletAliasString(tablet.GetAlias())
 	val += "\x00" // Add the null character as a terminator
 	return true, []byte(val), nil
 }

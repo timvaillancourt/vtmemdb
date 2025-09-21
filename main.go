@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"maps"
 
 	"github.com/hashicorp/go-memdb"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
@@ -14,52 +16,67 @@ func main() {
 		panic(err)
 	}
 
-	idxr := &TabletAliasIndexer{}
-	idxBytes, err := idxr.FromArgs(&topodatapb.TabletAlias{Cell: "zone1", Uid: 127})
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("idx key: %s\n", string(idxBytes))
-
+	// Populate table
 	txn := db.Txn(true)
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 10; i++ {
 		t := &topodatapb.Tablet{
 			Alias: &topodatapb.TabletAlias{
 				Cell: "zone1",
 				Uid:  uint32(i),
 			},
+			Keyspace:  "ks",
+			Shard:     "-",
 			Hostname:  fmt.Sprintf("host%d.zone1.local", i),
 			MysqlPort: 3306,
 			Type:      topodatapb.TabletType_REPLICA,
 		}
-		if err := txn.Insert(tabletsTable, t); err != nil {
+		if err := SaveTablet(txn, t); err != nil {
 			panic(err)
 		}
 	}
 	txn.Commit()
 
+	// Read txn
 	txn = db.Txn(false)
 	defer txn.Abort()
 
-	res, err := txn.First(tabletsTable, tabletsAliasIndex, &topodatapb.TabletAlias{Cell: "zone1", Uid: 9999})
+	tablet, err := ReadTablet(txn, &topodatapb.TabletAlias{Cell: "zone1", Uid: 9})
 	if err != nil {
 		panic(err)
-	} else if res != nil {
-		tablet, ok := res.(*topodatapb.Tablet)
-		if !ok {
-			panic(fmt.Errorf("data must be *topodatapb.Tablet, got %T", res))
-		}
-		fmt.Printf("res tablet: %+v\n", tablet)
 	}
+	fmt.Printf("res tablet: %+v\n", tablet)
 
-	res, err = txn.First(tabletsTable, tabletsHostnamePortIndex, "host123.zone1.local", int32(3306))
+	tablets, err := ReadTabletsByHostname(txn, "host3.zone1.local")
 	if err != nil {
 		panic(err)
-	} else if res != nil {
-		tablet, ok := res.(*topodatapb.Tablet)
-		if !ok {
-			panic(fmt.Errorf("data must be *topodatapb.Tablet, got %T", res))
-		}
-		fmt.Printf("res tablet: %+v\n", tablet)
 	}
+	fmt.Printf("res tablets: %+v\n", tablets)
+
+	tablet, err = ReadTabletByHostnameAndPort(txn, "host5.zone1.local", int32(3306))
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("res tablet: %+v\n", tablet)
+
+	ds, err := GetDatabaseState(txn)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(string(ds))
+}
+
+func GetDatabaseState(txn *memdb.Txn) ([]byte, error) {
+	output := make(map[string]any, 0)
+	for tableName := range maps.Keys(dbSchema.Tables) {
+		items := make([]any, 0)
+		it, err := txn.Get(tableName, primaryKeyIndex)
+		if err != nil {
+			return nil, err
+		}
+		for obj := it.Next(); obj != nil; obj = it.Next() {
+			items = append(items, obj)
+		}
+		output[tableName] = items
+	}
+	return json.MarshalIndent(output, "", "    ")
 }

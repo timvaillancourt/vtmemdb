@@ -3,14 +3,45 @@ package main
 import "github.com/hashicorp/go-memdb"
 
 const (
-	tabletsTable = "tablets"
+	keyspacesTable = "keyspaces"
+	shardsTable    = "shards"
+	tabletsTable   = "tablets"
 
-	tabletsAliasIndex        = "id"
-	tabletsHostnamePortIndex = "hostname_port"
+	primaryKeyIndex           = "id"
+	keyspacesKeyspaceIndex    = primaryKeyIndex
+	shardsKeyspaceShardIndex  = primaryKeyIndex
+	tabletsAliasIndex         = primaryKeyIndex
+	tabletsHostnamePortIndex  = "hostname_port"
+	tabletsKeyspaceShardIndex = "keyspace_shard"
 )
 
 var dbSchema = &memdb.DBSchema{
 	Tables: map[string]*memdb.TableSchema{
+		keyspacesTable: {
+			Name: keyspacesTable,
+			Indexes: map[string]*memdb.IndexSchema{
+				keyspacesKeyspaceIndex: {
+					Name:    keyspacesKeyspaceIndex,
+					Unique:  true,
+					Indexer: &memdb.StringFieldIndex{Field: "Keyspace"},
+				},
+			},
+		},
+		shardsTable: {
+			Name: shardsTable,
+			Indexes: map[string]*memdb.IndexSchema{
+				shardsKeyspaceShardIndex: {
+					Name:   shardsKeyspaceShardIndex,
+					Unique: true,
+					Indexer: &memdb.CompoundIndex{
+						Indexes: []memdb.Indexer{
+							&memdb.StringFieldIndex{Field: "Keyspace"},
+							&memdb.StringFieldIndex{Field: "Shard"},
+						},
+					},
+				},
+			},
+		},
 		tabletsTable: {
 			Name: tabletsTable,
 			Indexes: map[string]*memdb.IndexSchema{
@@ -26,6 +57,16 @@ var dbSchema = &memdb.DBSchema{
 						Indexes: []memdb.Indexer{
 							&memdb.StringFieldIndex{Field: "Hostname"},
 							&memdb.IntFieldIndex{Field: "MysqlPort"},
+						},
+					},
+				},
+				tabletsKeyspaceShardIndex: {
+					Name:   tabletsKeyspaceShardIndex,
+					Unique: false,
+					Indexer: &memdb.CompoundIndex{
+						Indexes: []memdb.Indexer{
+							&memdb.StringFieldIndex{Field: "Keyspace"},
+							&memdb.StringFieldIndex{Field: "Shard"},
 						},
 					},
 				},
