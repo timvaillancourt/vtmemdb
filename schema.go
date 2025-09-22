@@ -3,16 +3,30 @@ package main
 import "github.com/hashicorp/go-memdb"
 
 const (
+	// keyspaceTable stores keyspace records
 	keyspacesTable = "keyspaces"
-	shardsTable    = "shards"
-	tabletsTable   = "tablets"
 
-	primaryKeyIndex           = "id"
-	keyspacesKeyspaceIndex    = primaryKeyIndex
-	shardsKeyspaceShardIndex  = primaryKeyIndex
-	tabletsAliasIndex         = primaryKeyIndex
-	tabletsHostnamePortIndex  = "hostname_port"
-	tabletsKeyspaceShardIndex = "keyspace_shard"
+	// shardsTable stores shard records
+	shardsTable = "shards"
+
+	// stateTable stores VTOrc state
+	stateTable = "state"
+
+	// tabletsTable stores tablet records
+	tabletsTable = "tablets"
+)
+
+const (
+	// primary key indexes
+	primaryKeyIndex          = "id"
+	keyspacesNameIndex       = primaryKeyIndex
+	shardsKeyspaceShardIndex = primaryKeyIndex
+	stateIndex               = primaryKeyIndex
+	tabletsAliasIndex        = primaryKeyIndex
+
+	// secondary indexes
+	tabletsHostnameMysqlPortIndex = "hostname_mysqlPort"
+	tabletsKeyspaceShardIndex     = "keyspace_shard"
 )
 
 var dbSchema = &memdb.DBSchema{
@@ -20,10 +34,10 @@ var dbSchema = &memdb.DBSchema{
 		keyspacesTable: {
 			Name: keyspacesTable,
 			Indexes: map[string]*memdb.IndexSchema{
-				keyspacesKeyspaceIndex: {
-					Name:    keyspacesKeyspaceIndex,
+				keyspacesNameIndex: {
+					Name:    keyspacesNameIndex,
 					Unique:  true,
-					Indexer: &memdb.StringFieldIndex{Field: "Keyspace"},
+					Indexer: &memdb.StringFieldIndex{Field: "Name"},
 				},
 			},
 		},
@@ -36,9 +50,19 @@ var dbSchema = &memdb.DBSchema{
 					Indexer: &memdb.CompoundIndex{
 						Indexes: []memdb.Indexer{
 							&memdb.StringFieldIndex{Field: "Keyspace"},
-							&memdb.StringFieldIndex{Field: "Shard"},
+							&memdb.StringFieldIndex{Field: "Name"},
 						},
 					},
+				},
+			},
+		},
+		stateTable: {
+			Name: stateTable,
+			Indexes: map[string]*memdb.IndexSchema{
+				stateIndex: {
+					Name:    stateIndex,
+					Unique:  true,
+					Indexer: &memdb.StringFieldIndex{Field: "Name"},
 				},
 			},
 		},
@@ -48,10 +72,10 @@ var dbSchema = &memdb.DBSchema{
 				tabletsAliasIndex: {
 					Name:    tabletsAliasIndex,
 					Unique:  true,
-					Indexer: &TabletAliasIndexer{},
+					Indexer: NewTabletAliasIndexer(),
 				},
-				tabletsHostnamePortIndex: {
-					Name:   tabletsHostnamePortIndex,
+				tabletsHostnameMysqlPortIndex: {
+					Name:   tabletsHostnameMysqlPortIndex,
 					Unique: true,
 					Indexer: &memdb.CompoundIndex{
 						Indexes: []memdb.Indexer{

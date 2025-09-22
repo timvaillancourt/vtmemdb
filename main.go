@@ -7,6 +7,7 @@ import (
 
 	"github.com/hashicorp/go-memdb"
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
+	"vitess.io/vitess/go/vt/vtctl/reparentutil/policy"
 )
 
 func main() {
@@ -17,18 +18,40 @@ func main() {
 	}
 
 	// Populate table
+	keyspace := "ks"
+	shard := "-"
 	txn := db.Txn(true)
+
+	if err := SaveKeyspace(txn, keyspace, &topodatapb.Keyspace{
+		DurabilityPolicy: policy.DurabilityCrossCell,
+	}); err != nil {
+		panic(err)
+	}
+
+	if err := SaveShard(txn, keyspace, shard, &topodatapb.Shard{
+		PrimaryAlias: &topodatapb.TabletAlias{
+			Cell: "zone1",
+			Uid:  0,
+		},
+	}); err != nil {
+		panic(err)
+	}
+
 	for i := 0; i < 10; i++ {
+		tabletType := topodatapb.TabletType_REPLICA
+		if i == 0 {
+			tabletType = topodatapb.TabletType_PRIMARY
+		}
 		t := &topodatapb.Tablet{
 			Alias: &topodatapb.TabletAlias{
 				Cell: "zone1",
 				Uid:  uint32(i),
 			},
-			Keyspace:  "ks",
-			Shard:     "-",
+			Keyspace:  keyspace,
+			Shard:     shard,
 			Hostname:  fmt.Sprintf("host%d.zone1.local", i),
 			MysqlPort: 3306,
-			Type:      topodatapb.TabletType_REPLICA,
+			Type:      tabletType,
 		}
 		if err := SaveTablet(txn, t); err != nil {
 			panic(err)
@@ -52,7 +75,7 @@ func main() {
 	}
 	fmt.Printf("res tablets: %+v\n", tablets)
 
-	tablet, err = ReadTabletByHostnameAndPort(txn, "host5.zone1.local", int32(3306))
+	tablet, err = ReadTabletByHostnameAndMysqlPort(txn, "host5.zone1.local", int32(3306))
 	if err != nil {
 		panic(err)
 	}

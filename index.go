@@ -11,6 +11,11 @@ import (
 // ("Alias" field of "Tablet") as the index key.
 type TabletAliasIndexer struct{}
 
+// NewTabletAliasIndexer creates a new *TabletAliasIndexer.
+func NewTabletAliasIndexer() *TabletAliasIndexer {
+	return &TabletAliasIndexer{}
+}
+
 // FromArgs satisfies the memdb.Indexer interface.
 func (tai *TabletAliasIndexer) FromArgs(args ...interface{}) ([]byte, error) {
 	if len(args) != 1 {
