@@ -8,13 +8,14 @@ import (
 	topodatapb "vitess.io/vitess/go/vt/proto/topodata"
 )
 
-type tablet struct {
+type tabletRecord struct {
 	*topodatapb.Tablet
+
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func SaveTablet(txn *memdb.Txn, t *topodatapb.Tablet) error {
-	return txn.Insert(tabletsTable, &tablet{
+	return txn.Insert(tabletsTable, &tabletRecord{
 		Tablet:    t,
 		UpdatedAt: time.Now().UTC(),
 	})
@@ -25,9 +26,9 @@ func ReadTablet(txn *memdb.Txn, tabletAlias *topodatapb.TabletAlias) (*topodatap
 	if err != nil {
 		return nil, err
 	}
-	t, ok := res.(*tablet)
+	t, ok := res.(*tabletRecord)
 	if !ok {
-		return nil, fmt.Errorf("data must be *tablet, got %T", res)
+		return nil, fmt.Errorf("data must be *tabletRecord, got %T", res)
 	}
 	return t.Tablet, nil
 }
@@ -40,9 +41,9 @@ func ReadTabletsByHostname(txn *memdb.Txn, hostname string) ([]*topodatapb.Table
 	}
 	tablets := make([]*topodatapb.Tablet, 0)
 	for obj := it.Next(); obj != nil; obj = it.Next() {
-		t, ok := obj.(*tablet)
+		t, ok := obj.(*tabletRecord)
 		if !ok {
-			return nil, fmt.Errorf("data must be *tablet, got %T", obj)
+			return nil, fmt.Errorf("data must be *tabletRecord, got %T", obj)
 		}
 		tablets = append(tablets, t.Tablet)
 	}
@@ -54,9 +55,9 @@ func ReadTabletByHostnameAndMysqlPort(txn *memdb.Txn, hostname string, mysqlPort
 	if err != nil {
 		return nil, err
 	}
-	t, ok := res.(*tablet)
+	t, ok := res.(*tabletRecord)
 	if !ok {
-		return nil, fmt.Errorf("data must be *tablet, got %T", res)
+		return nil, fmt.Errorf("data must be *tabletRecord, got %T", res)
 	}
 	return t.Tablet, nil
 }

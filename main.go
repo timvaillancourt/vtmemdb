@@ -20,15 +20,15 @@ func main() {
 	// Populate table
 	keyspace := "ks"
 	shard := "-"
-	txn := db.Txn(true)
+	wTxn := db.Txn(true)
 
-	if err := SaveKeyspace(txn, keyspace, &topodatapb.Keyspace{
+	if err := SaveKeyspace(wTxn, keyspace, &topodatapb.Keyspace{
 		DurabilityPolicy: policy.DurabilityCrossCell,
 	}); err != nil {
 		panic(err)
 	}
 
-	if err := SaveShard(txn, keyspace, shard, &topodatapb.Shard{
+	if err := SaveShard(wTxn, keyspace, shard, &topodatapb.Shard{
 		PrimaryAlias: &topodatapb.TabletAlias{
 			Cell: "zone1",
 			Uid:  0,
@@ -53,15 +53,27 @@ func main() {
 			MysqlPort: 3306,
 			Type:      tabletType,
 		}
-		if err := SaveTablet(txn, t); err != nil {
+		if err := SaveTablet(wTxn, t); err != nil {
 			panic(err)
 		}
 	}
-	txn.Commit()
+	wTxn.Commit()
 
 	// Read txn
-	txn = db.Txn(false)
+	txn := db.Txn(false)
 	defer txn.Abort()
+
+	k, err := ReadKeyspace(txn, keyspace)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("res keyspace: %+v\n", k)
+
+	s, err := ReadShard(txn, keyspace, shard)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("res shard: %+v\n", s)
 
 	tablet, err := ReadTablet(txn, &topodatapb.TabletAlias{Cell: "zone1", Uid: 9})
 	if err != nil {
@@ -80,6 +92,20 @@ func main() {
 		panic(err)
 	}
 	fmt.Printf("res tablet: %+v\n", tablet)
+
+	wTxn = db.Txn(true)
+	if err := SetGlobalRecoveryDisabled(wTxn); err != nil {
+		panic(err)
+	}
+	wTxn.Commit()
+
+	txn = db.Txn(false)
+
+	recoveryDisabled, err := IsGlobalRecoveryDisabled(txn)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("res recoveryDisabled: %+v\n", recoveryDisabled)
 
 	ds, err := GetDatabaseState(txn)
 	if err != nil {

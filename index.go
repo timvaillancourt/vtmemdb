@@ -32,11 +32,11 @@ func (tai *TabletAliasIndexer) FromArgs(args ...interface{}) ([]byte, error) {
 
 // FromObject satisfies the memdb.SingleIndexer interface.
 func (tai *TabletAliasIndexer) FromObject(obj interface{}) (bool, []byte, error) {
-	tablet, ok := obj.(*tablet)
+	t, ok := obj.(*tabletRecord)
 	if !ok {
-		return false, nil, fmt.Errorf("object must be a *topodatapb.Tablet: %+v", obj)
+		return false, nil, fmt.Errorf("object must be a *tabletRecord: %+v", obj)
 	}
-	val := topoproto.TabletAliasString(tablet.GetAlias())
+	val := topoproto.TabletAliasString(t.GetAlias())
 	val += "\x00" // Add the null character as a terminator
 	return true, []byte(val), nil
 }
